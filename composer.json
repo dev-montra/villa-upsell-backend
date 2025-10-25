@@ -13,8 +13,8 @@
         "sendgrid/sendgrid": "^8.1",
         "stripe/stripe-php": "^18.0",
         "transferwise/wise-php": "^0.2.1",
-        "twilio/sdk": "^8.8",
-        "heroku/heroku-buildpack-php": "^24.0"
+        "twilio/sdk": "^8.8"
+        
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -23,7 +23,8 @@
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^11.5.3"
+        "phpunit/phpunit": "^11.5.3",
+        "heroku/heroku-buildpack-php": "^24.0"
     },
     "autoload": {
         "psr-4": {
