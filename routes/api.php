@@ -56,10 +56,6 @@ Route::post('/guest/payments/wise', [PaymentController::class, 'createGuestWiseP
 
 // Guest routes (tokenized access)
 Route::prefix('guest')->group(function () {
-    // These will be implemented in Phase 3
-    // Route::get('/validate/{token}', [GuestController::class, 'validateToken']);
-    // Route::post('/check-in', [GuestController::class, 'checkIn']);
-    // Route::get('/upsells/{token}', [GuestController::class, 'getUpsells']);
 });
 
 // Protected routes (require authentication)
