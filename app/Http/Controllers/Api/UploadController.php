@@ -13,6 +13,12 @@ class UploadController extends Controller
 {
     private function getCloudinary()
     {
+        // Check if CLOUDINARY_URL is set (standard Cloudinary format)
+        if (env('CLOUDINARY_URL')) {
+            return new Cloudinary(env('CLOUDINARY_URL'));
+        }
+        
+        // Otherwise use individual variables
         return new Cloudinary([
             'cloud' => [
                 'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
@@ -35,7 +41,7 @@ class UploadController extends Controller
             $file = $request->file('image');
             
             // Check if Cloudinary is configured
-            if (env('CLOUDINARY_CLOUD_NAME') && env('CLOUDINARY_API_KEY') && env('CLOUDINARY_API_SECRET')) {
+            if (env('CLOUDINARY_URL') || (env('CLOUDINARY_CLOUD_NAME') && env('CLOUDINARY_API_KEY') && env('CLOUDINARY_API_SECRET'))) {
                 // Upload to Cloudinary
                 $cloudinary = $this->getCloudinary();
                 
