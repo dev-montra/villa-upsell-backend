@@ -12,9 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['admin', 'owner'])->default('owner')->after('password');
-            $table->string('stripe_account_id')->nullable()->after('role');
-            $table->boolean('is_active')->default(true)->after('stripe_account_id');
+            if (!Schema::hasColumn('users', 'role')) {
+                $table->enum('role', ['admin', 'owner'])->default('owner');
+            }
+            if (!Schema::hasColumn('users', 'stripe_account_id')) {
+                $table->string('stripe_account_id')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'is_active')) {
+                $table->boolean('is_active')->default(true);
+            }
         });
     }
 
