@@ -13,22 +13,32 @@ class UploadController extends Controller
 {
     private function getCloudinary()
     {
-        // Check if CLOUDINARY_URL is set (standard Cloudinary format)
-        if (env('CLOUDINARY_URL')) {
-            return new Cloudinary(env('CLOUDINARY_URL'));
+        // Configure base Cloudinary instance
+        $cloudinaryUrl = env('CLOUDINARY_URL');
+        
+        if ($cloudinaryUrl) {
+            $cloudinary = new Cloudinary($cloudinaryUrl);
+        } else {
+            $cloudinary = new Cloudinary([
+                'cloud' => [
+                    'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                    'api_key' => env('CLOUDINARY_API_KEY'),
+                    'api_secret' => env('CLOUDINARY_API_SECRET'),
+                ],
+                'url' => [
+                    'secure' => true,
+                ],
+            ]);
         }
         
-        // Otherwise use individual variables
-        return new Cloudinary([
-            'cloud' => [
-                'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
-                'api_key' => env('CLOUDINARY_API_KEY'),
-                'api_secret' => env('CLOUDINARY_API_SECRET'),
-            ],
-            'url' => [
-                'secure' => true,
-            ],
-        ]);
+        // For local development, disable SSL verification
+        if (app()->environment('local')) {
+            $cloudinary->configuration->cloud->httpOptions = [
+                'verify' => false
+            ];
+        }
+        
+        return $cloudinary;
     }
 
     public function uploadImage(Request $request)
