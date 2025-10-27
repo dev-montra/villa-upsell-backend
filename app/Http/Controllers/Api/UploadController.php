@@ -4,11 +4,26 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Cloudinary\Cloudinary;
+use Cloudinary\Transformation\Resize;
 use Illuminate\Support\Str;
 
 class UploadController extends Controller
 {
+    private function getCloudinary()
+    {
+        return new Cloudinary([
+            'cloud' => [
+                'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                'api_key' => env('CLOUDINARY_API_KEY'),
+                'api_secret' => env('CLOUDINARY_API_SECRET'),
+            ],
+            'url' => [
+                'secure' => true,
+            ],
+        ]);
+    }
+
     public function uploadImage(Request $request)
     {
         $request->validate([
@@ -17,18 +32,26 @@ class UploadController extends Controller
 
         try {
             $file = $request->file('image');
-            $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $cloudinary = $this->getCloudinary();
             
-            // Store in public disk
-            $path = $file->storeAs('images', $filename, 'public');
+            // Upload to Cloudinary
+            $result = $cloudinary->uploadApi()->upload(
+                $file->getRealPath(),
+                [
+                    'public_id' => 'villa-upsell/' . Str::uuid(),
+                    'folder' => 'villa-upsell',
+                    'resource_type' => 'image',
+                    'overwrite' => true,
+                ]
+            );
             
-            // Get the relative URL for frontend proxy
-            $url = '/storage/' . $path;
+            $url = $result['secure_url'];
+            $publicId = $result['public_id'];
             
             return response()->json([
                 'success' => true,
                 'url' => $url,
-                'path' => $path,
+                'public_id' => $publicId,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -41,20 +64,17 @@ class UploadController extends Controller
     public function deleteImage(Request $request)
     {
         $request->validate([
-            'path' => 'required|string',
+            'public_id' => 'required|string',
         ]);
 
         try {
-            $path = $request->input('path');
+            $publicId = $request->input('public_id');
+            $cloudinary = $this->getCloudinary();
             
-            // Remove 'images/' prefix if it exists
-            if (str_starts_with($path, 'images/')) {
-                $path = substr($path, 7);
-            }
+            // Delete from Cloudinary
+            $result = $cloudinary->uploadApi()->destroy($publicId);
             
-            if (Storage::disk('public')->exists('images/' . $path)) {
-                Storage::disk('public')->delete('images/' . $path);
-                
+            if ($result['result'] === 'ok') {
                 return response()->json([
                     'success' => true,
                     'message' => 'Image deleted successfully',
@@ -63,13 +83,53 @@ class UploadController extends Controller
             
             return response()->json([
                 'success' => false,
-                'message' => 'Image not found',
-            ], 404);
+                'message' => 'Failed to delete image from Cloudinary',
+            ], 500);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete image: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+    
+    /**
+     * Helper method to extract public_id from a Cloudinary URL
+     */
+    public static function extractPublicIdFromUrl($url)
+    {
+        if (!is_string($url)) {
+            return null;
+        }
+        
+        // Check if it's a Cloudinary URL
+        if (str_contains($url, 'cloudinary.com')) {
+            // Extract public_id from URL pattern: https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}.{ext}
+            if (preg_match('/\/upload\/v\d+\/(.+?)\.(jpg|jpeg|png|gif|webp)/i', $url, $matches)) {
+                return $matches[1];
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Helper method to delete image by URL
+     */
+    public function deleteImageByUrl($url)
+    {
+        try {
+            $publicId = self::extractPublicIdFromUrl($url);
+            
+            if ($publicId) {
+                $cloudinary = $this->getCloudinary();
+                $result = $cloudinary->uploadApi()->destroy($publicId);
+                return $result['result'] === 'ok';
+            }
+            
+            return false;
+        } catch (\Exception $e) {
+            return false;
         }
     }
 }

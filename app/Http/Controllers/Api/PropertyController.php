@@ -7,6 +7,7 @@ use App\Models\Property;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str; // Laravel's helper for generating unique strings
 use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\Api\UploadController;
 
 class PropertyController extends Controller
 {
@@ -195,30 +196,32 @@ class PropertyController extends Controller
     }
 
     /**
-     * Delete image file from storage
+     * Delete image file from storage (Cloudinary or filesystem)
      */
     private function deleteImageFile($imageUrl)
     {
         try {
-            // Extract the file path from the URL
-            // Handle both absolute and relative URLs
-            if (str_starts_with($imageUrl, 'http')) {
-                // Absolute URL: extract path after domain
-                $path = parse_url($imageUrl, PHP_URL_PATH);
+            // Check if it's a Cloudinary URL
+            if (str_contains($imageUrl, 'cloudinary.com')) {
+                $uploadController = new UploadController();
+                $uploadController->deleteImageByUrl($imageUrl);
             } else {
-                // Relative URL: use as is
-                $path = $imageUrl;
-            }
+                // Legacy filesystem deletion for backward compatibility
+                // This handles old uploads that might still be on the filesystem
+                if (str_starts_with($imageUrl, 'http')) {
+                    $path = parse_url($imageUrl, PHP_URL_PATH);
+                } else {
+                    $path = $imageUrl;
+                }
 
-            // Remove leading slash and 'storage/' prefix if present
-            $path = ltrim($path, '/');
-            if (str_starts_with($path, 'storage/')) {
-                $path = substr($path, 8); // Remove 'storage/' prefix
-            }
+                $path = ltrim($path, '/');
+                if (str_starts_with($path, 'storage/')) {
+                    $path = substr($path, 8);
+                }
 
-            // Delete from public disk
-            if (Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->delete($path);
+                if (Storage::disk('public')->exists($path)) {
+                    Storage::disk('public')->delete($path);
+                }
             }
         } catch (\Exception $e) {
             // Log error but don't fail the property deletion
