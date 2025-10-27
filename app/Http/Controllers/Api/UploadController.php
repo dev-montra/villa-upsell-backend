@@ -41,41 +41,50 @@ class UploadController extends Controller
             $file = $request->file('image');
             
             // Check if Cloudinary is configured
-            if (env('CLOUDINARY_URL') || (env('CLOUDINARY_CLOUD_NAME') && env('CLOUDINARY_API_KEY') && env('CLOUDINARY_API_SECRET'))) {
+            $cloudinaryUrl = env('CLOUDINARY_URL');
+            \Log::info('Cloudinary URL check: ' . ($cloudinaryUrl ? 'Found' : 'Not found'));
+            
+            if ($cloudinaryUrl || (env('CLOUDINARY_CLOUD_NAME') && env('CLOUDINARY_API_KEY') && env('CLOUDINARY_API_SECRET'))) {
                 // Upload to Cloudinary
-                $cloudinary = $this->getCloudinary();
-                
-                $result = $cloudinary->uploadApi()->upload(
-                    $file->getRealPath(),
-                    [
-                        'public_id' => 'villa-upsell/' . Str::uuid(),
-                        'folder' => 'villa-upsell',
-                        'resource_type' => 'image',
-                        'overwrite' => true,
-                    ]
-                );
-                
-                $url = $result['secure_url'];
-                $publicId = $result['public_id'];
-                
-                return response()->json([
-                    'success' => true,
-                    'url' => $url,
-                    'public_id' => $publicId,
-                ]);
-            } else {
-                // Fallback to local filesystem for development
-                $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('images', $filename, 'public');
-                $url = '/storage/' . $path;
-                
-                return response()->json([
-                    'success' => true,
-                    'url' => $url,
-                    'public_id' => null,
-                ]);
+                try {
+                    $cloudinary = $this->getCloudinary();
+                    
+                    \Log::info('Attempting Cloudinary upload');
+                    $result = $cloudinary->uploadApi()->upload(
+                        $file->getRealPath(),
+                        [
+                            'public_id' => 'villa-upsell/' . Str::uuid(),
+                            'folder' => 'villa-upsell',
+                            'resource_type' => 'image',
+                            'overwrite' => true,
+                        ]
+                    );
+                    
+                    $url = $result['secure_url'];
+                    $publicId = $result['public_id'];
+                    
+                    \Log::info('Cloudinary upload successful: ' . $url);
+                    
+                    return response()->json([
+                        'success' => true,
+                        'url' => $url,
+                        'public_id' => $publicId,
+                    ]);
+                } catch (\Exception $cloudinaryException) {
+                    \Log::error('Cloudinary upload failed: ' . $cloudinaryException->getMessage());
+                    throw $cloudinaryException; // Re-throw to prevent fallback
+                }
             }
+            
+            // Return error if Cloudinary not configured
+            return response()->json([
+                'success' => false,
+                'message' => 'Cloudinary is not configured. Please set CLOUDINARY_URL in your .env file.',
+            ], 500);
         } catch (\Exception $e) {
+            \Log::error('Image upload failed: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload image: ' . $e->getMessage(),
