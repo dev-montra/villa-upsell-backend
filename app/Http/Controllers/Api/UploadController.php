@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Cloudinary\Cloudinary;
 use Cloudinary\Transformation\Resize;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class UploadController extends Controller
 {
@@ -32,27 +33,42 @@ class UploadController extends Controller
 
         try {
             $file = $request->file('image');
-            $cloudinary = $this->getCloudinary();
             
-            // Upload to Cloudinary
-            $result = $cloudinary->uploadApi()->upload(
-                $file->getRealPath(),
-                [
-                    'public_id' => 'villa-upsell/' . Str::uuid(),
-                    'folder' => 'villa-upsell',
-                    'resource_type' => 'image',
-                    'overwrite' => true,
-                ]
-            );
-            
-            $url = $result['secure_url'];
-            $publicId = $result['public_id'];
-            
-            return response()->json([
-                'success' => true,
-                'url' => $url,
-                'public_id' => $publicId,
-            ]);
+            // Check if Cloudinary is configured
+            if (env('CLOUDINARY_CLOUD_NAME') && env('CLOUDINARY_API_KEY') && env('CLOUDINARY_API_SECRET')) {
+                // Upload to Cloudinary
+                $cloudinary = $this->getCloudinary();
+                
+                $result = $cloudinary->uploadApi()->upload(
+                    $file->getRealPath(),
+                    [
+                        'public_id' => 'villa-upsell/' . Str::uuid(),
+                        'folder' => 'villa-upsell',
+                        'resource_type' => 'image',
+                        'overwrite' => true,
+                    ]
+                );
+                
+                $url = $result['secure_url'];
+                $publicId = $result['public_id'];
+                
+                return response()->json([
+                    'success' => true,
+                    'url' => $url,
+                    'public_id' => $publicId,
+                ]);
+            } else {
+                // Fallback to local filesystem for development
+                $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('images', $filename, 'public');
+                $url = '/storage/' . $path;
+                
+                return response()->json([
+                    'success' => true,
+                    'url' => $url,
+                    'public_id' => null,
+                ]);
+            }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
