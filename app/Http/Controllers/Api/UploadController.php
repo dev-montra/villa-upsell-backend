@@ -60,6 +60,15 @@ class UploadController extends Controller
                     $cloudinary = $this->getCloudinary();
                     
                     \Log::info('Attempting Cloudinary upload');
+                    
+                    // For local development, disable SSL verification
+                    $httpClientOptions = [];
+                    if (app()->environment('local')) {
+                        $httpClientOptions = [
+                            'verify' => false
+                        ];
+                    }
+                    
                     $result = $cloudinary->uploadApi()->upload(
                         $file->getRealPath(),
                         [
@@ -67,6 +76,7 @@ class UploadController extends Controller
                             'folder' => 'villa-upsell',
                             'resource_type' => 'image',
                             'overwrite' => true,
+                            'http_options' => $httpClientOptions,
                         ]
                     );
                     
